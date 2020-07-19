@@ -6,8 +6,8 @@ A quick voice and face-me(a)sh-up in the browser, inspired by https://www.youtub
 
 Demo: 
 
-Webcam and Microphone permissions needed.
-*Chrome only*, it uses Voice recognition from the [Web Speech API](https://caniuse.com/#search=Web%20Speech%20API)
+Webcam and Microphone permissions needed
+*Chrome only*, it uses voice recognition from the [Web Speech API](https://caniuse.com/#search=Web%20Speech%20API)
 
 
 #### Credits
@@ -16,7 +16,7 @@ Webcam and Microphone permissions needed.
 * Mr.doob: (https://threejs.org/)
 * Tensorflow.js team
 
-Also inspired by Golan Levin's Messa di Voce https://www.fondation-langlois.org/html/e/page.php?NumPage=364
+Also... inspired by Golan Levin's Messa di Voce https://www.fondation-langlois.org/html/e/page.php?NumPage=364
 
  
 
