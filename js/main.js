@@ -1,8 +1,8 @@
-/* global THREE, requestAnimationFrame */
+/* global facemesh, requestAnimationFrame, THREE */
 
-let camera, font, fontMaterial, renderer, scene;
+let camera, font, fontMaterial, renderer;
 
-function initRecognition (onResultCallBack) {
+function initSpeechRecognition (onResultCallBack) {
   let recognition;
 
   try {
@@ -14,19 +14,23 @@ function initRecognition (onResultCallBack) {
   }
 
   recognition.continuous = false;
-  recognition.lang = "en-US";
+  recognition.lang = 'en-US';
   recognition.interimResults = false;
   recognition.maxAlternatives = 1;
   recognition.start();
 
+  recognition.onstart = function () {
+    console.log('Speech recognition service has started');
+  };
+
   recognition.onresult = function (event) {
     const result = event.results[0][0];
-    console.log("Speech recognition: result");
+    console.log('Speech recognition: result');
     onResultCallBack(result.transcript, result.confidence);
   };
 
   recognition.onnomatch = function (event) {
-    console.log("Speech recognition: no match");
+    console.log('Speech recognition: no match');
   };
 
   recognition.onerror = function (event) {
@@ -34,8 +38,30 @@ function initRecognition (onResultCallBack) {
   };
 }
 
+function initWebCam (videoEL) {
+  const webcam = document.querySelector(videoEL);
+
+  function loadStream (stream) {
+    webcam.srcObject = stream;
+    webcam.onloadedmetadata = setCamParameters;
+  }
+
+  function setCamParameters () {
+    webcam.height = webcam.videoHeight;
+    webcam.width = webcam.videoWidth;
+    webcam.setAttribute('autoplay', true);
+    webcam.setAttribute('muted', true);
+    webcam.setAttribute('playsinline', true);
+    webcam.play();
+  }
+
+  navigator.mediaDevices.getUserMedia({ video: true, audio: false }).then(loadStream);
+
+  return webcam;
+}
+
 function initScene () {
-  scene = new THREE.Scene();
+  const scene = new THREE.Scene();
   camera = new THREE.PerspectiveCamera(
     75,
     window.innerWidth / window.innerHeight,
@@ -48,19 +74,39 @@ function initScene () {
   camera.position.z = 5;
 
   var loader = new THREE.FontLoader();
-  loader.load("font/FIGHTINGFORCE_Regular.json", function (f) {
+  loader.load('font/FIGHTINGFORCE_Regular.json', function (f) {
     font = f;
-    const color = 0x006699;
+    const color = 0xfffcfa;
     fontMaterial = new THREE.MeshBasicMaterial({
       color: color,
       transparent: true,
-      opacity: 0.6,
+      opacity: 0.9,
       side: THREE.DoubleSide
     });
   });
+  console.log(scene);
+
+  return scene;
 }
 
-function drawText (msg) {
+function initMLModel (webcam) {
+  function loadModel () {
+    facemesh.load({
+      maxContinuousChecks: 5,
+      detectionConfidence: 0.9,
+      maxFaces: 1,
+      iouThreshold: 0.3,
+      scoreThreshold: 0.75
+    }).then(predict);
+  }
+  function predict (model) {
+    model.estimateFaces(webcam)
+      .then(console.log);
+  }
+  loadModel();
+}
+
+function drawText (scene, msg) {
   const shapes = font.generateShapes(msg, 22);
   const geometry = new THREE.ShapeBufferGeometry(shapes);
   geometry.computeBoundingBox();
@@ -72,8 +118,26 @@ function drawText (msg) {
   scene.add(text);
 }
 
-function animate () {
-  requestAnimationFrame(animate);
+function init () {
+  const scene = initScene();
+
+  initSpeechRecognition(function (transcript, confidence) {
+    console.log(`Speech recognition result: ${transcript}`);
+    console.log(`Speech recognition: Confidence: ${confidence}`);
+    drawText(scene, transcript);
+  });
+
+  initWebCam('#webcam').onloadeddata = (event) => {
+    initMLModel(event.target);
+  };
+
+  return scene;
+}
+
+function animate (scene) {
+  console.log(scene);
+  /// requestAnimationFrame((scene) => animate(scene));
+
   const text = scene.getObjectByName('text');
   if (text != null) {
     if (text.material.opacity <= 0) {
@@ -82,18 +146,11 @@ function animate () {
       text.material.opacity -= 0.002;
     }
   }
-  
-  
-  
+
   renderer.render(scene, camera);
 }
 
-initScene();
-
-initRecognition(function (transcript, confidence) {
-  console.log(`Speech recognition result: ${transcript}`);
-  console.log(`Speech recognition: Confidence: ${confidence}`);
-  drawText(transcript);
-});
-
-animate();
+window.onload = function () {
+  const scene = init();
+  animate(scene);
+};
