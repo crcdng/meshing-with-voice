@@ -1,6 +1,6 @@
-/* global facemesh, requestAnimationFrame, THREE */
+/* global dat, facemesh, requestAnimationFrame, Stats, THREE */
 
-let camera, font, fontMaterial, renderer;
+let font, fontMaterial, renderer;
 
 function initSpeechRecognition (onResultCallBack) {
   let recognition;
@@ -60,21 +60,23 @@ function initWebCam (videoEL) {
   return webcam;
 }
 
-function initScene () {
+function initScene (controls) {
   const scene = new THREE.Scene();
-  camera = new THREE.PerspectiveCamera(
+  const camera = new THREE.PerspectiveCamera(
     75,
     window.innerWidth / window.innerHeight,
     0.1,
     1000
   );
+  camera.position.z = controls.parameter1;
+  camera.lookAt(scene.position);
+
   renderer = new THREE.WebGLRenderer();
   renderer.setSize(window.innerWidth, window.innerHeight);
   document.body.appendChild(renderer.domElement);
-  camera.position.z = 5;
 
-  var loader = new THREE.FontLoader();
-  loader.load('font/FIGHTINGFORCE_Regular.json', function (f) {
+  const fontLoader = new THREE.FontLoader();
+  fontLoader.load('font/FIGHTINGFORCE_Regular.json', (f) => {
     font = f;
     const color = 0xfffcfa;
     fontMaterial = new THREE.MeshBasicMaterial({
@@ -84,8 +86,27 @@ function initScene () {
       side: THREE.DoubleSide
     });
   });
-  console.log(scene);
 
+  const stats = new Stats();
+  stats.showPanel(0);
+  document.body.appendChild(stats.dom);
+
+  function renderScene () {
+    stats.begin();
+    const text = scene.getObjectByName('text');
+    if (text != null) {
+      if (text.material.opacity <= 0) {
+        scene.remove(text);
+      } else {
+        text.material.opacity -= 0.01;
+      }
+    }
+    renderer.render(scene, camera);
+    stats.end();
+    requestAnimationFrame(renderScene);
+  }
+
+  renderScene();
   return scene;
 }
 
@@ -118,8 +139,8 @@ function drawText (scene, msg) {
   scene.add(text);
 }
 
-function init () {
-  const scene = initScene();
+function init (controls) {
+  const scene = initScene(controls);
 
   initSpeechRecognition(function (transcript, confidence) {
     console.log(`Speech recognition result: ${transcript}`);
@@ -130,27 +151,17 @@ function init () {
   initWebCam('#webcam').onloadeddata = (event) => {
     initMLModel(event.target);
   };
-
-  return scene;
-}
-
-function animate (scene) {
-  console.log(scene);
-  /// requestAnimationFrame((scene) => animate(scene));
-
-  const text = scene.getObjectByName('text');
-  if (text != null) {
-    if (text.material.opacity <= 0) {
-      scene.remove(text);
-    } else {
-      text.material.opacity -= 0.002;
-    }
-  }
-
-  renderer.render(scene, camera);
 }
 
 window.onload = function () {
-  const scene = init();
-  animate(scene);
+  class Controls {
+    constructor (parameter1) {
+      this.cameraZ = parameter1;
+    }
+  }
+  const controls = new Controls(5);
+  const gui = new dat.GUI();
+  gui.add(controls, 'cameraZ', 0, 10);
+
+  init(controls);
 };
