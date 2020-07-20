@@ -1,4 +1,4 @@
-###  meshing-with-voice
+### Meshing With Voice
 
 **WORK IN PROGRESS**
 
@@ -18,7 +18,7 @@ Demo: **TBD**
 * Mr.doob: (https://threejs.org/)
 * Darrell Flood (font)
 
-Also... inspired by Golan Levin's Re:MARK http://www.flong.com/projects/remark/
+Also... inspired by Golan Levin: Re:MARK http://www.flong.com/projects/remark/
  
 
 

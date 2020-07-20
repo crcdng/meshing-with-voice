@@ -1,12 +1,12 @@
 /* global dat, facemesh, requestAnimationFrame, Stats, THREE */
 
-let controls, ctx, font, fontMaterial, glCanvas, renderer, stats, webcam;
+let controls, ctx, font, fontMaterial, glCanvas, renderer, stats, twoDCanvas, webcam;
 
 function initWebPage () {
   glCanvas = document.getElementById('glcanvas');
   glCanvas.width = window.width;
   glCanvas.height = window.height;
-  const twoDCanvas = document.getElementById('twodcanvas');
+  twoDCanvas = document.getElementById('twodcanvas');
   twoDCanvas.width = 480;
   twoDCanvas.height = 320;
   ctx = twoDCanvas.getContext('2d');
@@ -28,7 +28,7 @@ function initWebPage () {
       this.cameraZ = p4;
     }
   }
-  controls = new Controls(true, true, true, 50);
+  controls = new Controls(true, true, true, 5);
   const gui = new dat.GUI();
 
   const screen = gui.addFolder('Screen');
@@ -37,7 +37,7 @@ function initWebPage () {
   screen.add(controls, 'recognition').onChange((value) => { twoDCanvas.style.visibility = value ? 'visible' : 'hidden'; });
 
   const scene = gui.addFolder('Scene');
-  scene.add(controls, 'cameraZ', -100, 100);
+  scene.add(controls, 'cameraZ', -20, 20);
   screen.open();
 }
 
@@ -84,6 +84,7 @@ function initWebCam (videoEL) {
   }
 
   function setCamParameters () {
+    console.log(`Webcam ready: ${webcam.videoWidth}, ${webcam.videoHeight}`);
     webcam.setAttribute('autoplay', true);
     webcam.setAttribute('muted', true);
     webcam.setAttribute('playsinline', true);
@@ -111,8 +112,8 @@ function initScene () {
     0.1,
     1000
   );
-  camera.position.z = controls.parameter1;
-  camera.lookAt(scene.position);
+  camera.position.z = controls.p4;
+  // camera.lookAt(scene.position);
 
   renderer = new THREE.WebGLRenderer();
   renderer.setSize(glCanvas.width, glCanvas.height);
@@ -160,45 +161,38 @@ function initMLModel (scene, webcam) {
     }).then(predict);
   }
 
+  let facemeshModel;
+
   function predict (model) {
-    model.estimateFaces(webcam, false, true) // flip image for webcam
-      .then(updatePredictions);
+    if (!facemeshModel) {
+      facemeshModel = model;
+    }
+    model.estimateFaces(webcam).then(updatePredictions);
   }
 
-  var positions = [];
+  let positions = [];
 
   function updatePredictions (predictions) {
+    predict(facemeshModel);
     if (predictions.length === 0) return;
     // populate the position variable with the Face landmark points( U,V ).
     positions = predictions[0].scaledMesh;
-    renderFacePoints(scene, positions); // Called once on face detection.
   }
+  function renderFacePoints () {
+    requestAnimationFrame(renderFacePoints);
+    // console.log(`Rendering Face points: ${positions.length}`);
+    if (positions.length === 0) return;
+    ctx.clearRect(0, 0, twoDCanvas.width, twoDCanvas.height);
 
+    for (const i of positions) {
+      const x = i[0];
+      const y = i[1];
+      ctx.fillStyle = 'black';
+      ctx.fillRect(x, y, 2, 2);
+    }
+  }
   loadModel();
-}
-
-function renderFacePoints (scene, positions) {
-  // Check if a face is found on the webcam feed or not
-  if (positions.length === 0) return;
-  // loop through the position array
-  console.log(positions[0], scene);
-  for (const i of positions) {
-    const x = i[0];
-    const y = i[1];
-    const z = i[2];
-
-    // const material = new THREE.LineBasicMaterial({ color: 0xff00ff });
-    // const points = [];
-    // points.push(new THREE.Vector3(x, y, z));
-    // points.push(new THREE.Vector3(x + 0.5, y + 0.5, z + 0.5));
-
-    // var geometry = new THREE.BufferGeometry().setFromPoints(points);
-    // var line = new THREE.Line(geometry, material);
-    // scene.add(line);
-
-    ctx.fillStyle = 'black';
-    ctx.fillRect(x, y, 2, 2);
-  }
+  renderFacePoints();
 }
 
 function drawText (scene, msg) {
@@ -208,7 +202,7 @@ function drawText (scene, msg) {
   const xMid = -0.5 * (geometry.boundingBox.max.x - geometry.boundingBox.min.x);
   geometry.translate(xMid, 0, 0);
   const text = new THREE.Mesh(geometry, fontMaterial);
-  text.position.z = -150;
+  text.position.z = -15;
   text.name = 'text';
   scene.add(text);
 }
