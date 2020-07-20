@@ -5,6 +5,8 @@
 A quick voice and face-me(a)sh-up in the browser, inspired by https://www.youtube.com/watch?v=ac7MSo9nMiI
 Uses [tensorflow.js](https://www.tensorflow.org/), the pretrained [Facemesh model](https://github.com/tensorflow/tfjs-models/tree/master/facemesh) and voice recognition via the [Web Speech API](https://caniuse.com/#search=Web%20Speech%20API)
 
+Wait until it loads and then say something.
+
 Demo: **TBD**
 
 * Webcam and Microphone permissions required
