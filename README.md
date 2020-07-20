@@ -7,8 +7,9 @@ Uses [tensorflow.js](https://www.tensorflow.org/), the pretrained [Facemesh mode
 
 Demo: **TBD**
 
-Webcam and Microphone permissions required
-*Chrome only* as of [Web Speech API](https://caniuse.com/#search=Web%20Speech%20API)
+* Webcam and Microphone permissions required
+* Must run in a secure context (https)
+* *Chrome only* as of [Web Speech API](https://caniuse.com/#search=Web%20Speech%20API)
 
 #### Credits
 * Samarth Gulati: original face painting code and face model data (https://samarthgulati.com/)
@@ -17,8 +18,7 @@ Webcam and Microphone permissions required
 * Mr.doob: (https://threejs.org/)
 * Darrell Flood (font)
 
-Also... inspired by Golan Levin's Messa di Voce https://www.fondation-langlois.org/html/e/page.php?NumPage=364
-
+Also... inspired by Golan Levin's Re:MARK http://www.flong.com/projects/remark/
  
 
 
