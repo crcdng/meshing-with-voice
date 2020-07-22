@@ -55,6 +55,7 @@ function initWebPage (statsVisible, webcamVisible, twoDCanvasVisible) {
 
 function initSpeechRecognition (onResultCallBack) {
   let recognition;
+  let resultId = 0;
 
   try {
     const SpeechRecognition =
@@ -64,7 +65,7 @@ function initSpeechRecognition (onResultCallBack) {
     console.error(error);
   }
 
-  recognition.continuous = false;
+  recognition.continuous = true;
   recognition.lang = 'en-US';
   recognition.interimResults = false;
   recognition.maxAlternatives = 1;
@@ -99,7 +100,7 @@ function initSpeechRecognition (onResultCallBack) {
   };
 
   recognition.onresult = function (event) {
-    const result = event.results[0][0];
+    const result = event.results[resultId++][0];
     console.log('Speech recognition: result');
     onResultCallBack(result.transcript, result.confidence);
   };
@@ -226,7 +227,6 @@ function initMLModel (webcam) {
   function updatePredictions (predictions) {
     predict(facemeshModel);
     if (predictions.length === 0) return;
-    // populate the position variable with the Face landmark points( U,V ).
     positions = predictions[0].scaledMesh;
   }
 
@@ -270,6 +270,7 @@ function initMLModel (webcam) {
 
 function drawText (msg) {
   const ctx = twoDCanvas.getContext('2d');
+  ctx.clearRect(0, 0, twoDCanvas.width, twoDCanvas.height);
   ctx.font = '48px serif';
   ctx.fillText(msg, twoDCanvas.width / 2, twoDCanvas.height * 0.7);
 }
@@ -279,17 +280,15 @@ function init () {
 
   initScene();
 
-  // initSpeechRecognition(function (transcript, confidence) {
-  //   console.log(`Speech recognition result: ${transcript}`);
-  //   console.log(`Speech recognition: Confidence: ${confidence}`);
-  //   drawText(scene, transcript);
-  // });
-
-  drawText("hello world!");
-
   initWebCam(webcamEl).onloadeddata = (event) => {
     initMLModel(event.target);
   };
+
+  initSpeechRecognition(function (transcript, confidence) {
+    console.log(`Speech recognition result: ${transcript}`);
+    console.log(`Speech recognition: Confidence: ${confidence}`);
+    drawText(transcript);
+  });
 }
 
 window.onload = function () {
