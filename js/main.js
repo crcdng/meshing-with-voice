@@ -1,6 +1,6 @@
 /* global dat, facemesh, positionBufferData, requestAnimationFrame, Stats, THREE, triangulation, uvs */
 
-let controls, drawTris, font, fontMaterial, glCanvas, positions, recognitionCanvas, recognitionCtx, stats, twoDCanvas, webcam;
+let controls, drawTris, font, fontMaterial, glCanvas, positions, recognitionCanvas, stats, twoDCanvas, webcamEl;
 
 function initWebPage (statsVisible, webcamVisible, twoDCanvasVisible) {
   glCanvas = document.getElementById('glcanvas');
@@ -9,15 +9,14 @@ function initWebPage (statsVisible, webcamVisible, twoDCanvasVisible) {
   recognitionCanvas = document.getElementById('recognitioncanvas');
   recognitionCanvas.width = 480;
   recognitionCanvas.height = 320;
-  recognitionCtx = recognitionCanvas.getContext('2d');
 
   twoDCanvas = document.getElementById('twodcanvas');
   twoDCanvas.width = window.innerWidth;
   twoDCanvas.height = window.innerHeight;
 
-  webcam = document.getElementById('webcam');
-  webcam.width = 480;
-  webcam.height = 320;
+  webcamEl = document.getElementById('webcam');
+  webcamEl.width = 480;
+  webcamEl.height = 320;
 
   stats = new Stats();
   stats.showPanel(0);
@@ -36,14 +35,14 @@ function initWebPage (statsVisible, webcamVisible, twoDCanvasVisible) {
   }
 
   stats.dom.style.visibility = statsVisible ? 'visible' : 'hidden';
-  webcam.style.visibility = webcamVisible ? 'visible' : 'hidden';
+  webcamEl.style.visibility = webcamVisible ? 'visible' : 'hidden';
   recognitionCanvas.style.visibility = twoDCanvasVisible ? 'visible' : 'hidden';
 
   controls = new Controls(statsVisible, webcamVisible, twoDCanvasVisible, false, 4);
   const gui = new dat.GUI();
   const screenUI = gui.addFolder('Screen');
   screenUI.add(controls, 'fps').onChange((value) => { stats.dom.style.visibility = value ? 'visible' : 'hidden'; });
-  screenUI.add(controls, 'webcam').onChange((value) => { webcam.style.visibility = value ? 'visible' : 'hidden'; });
+  screenUI.add(controls, 'webcam').onChange((value) => { webcamEl.style.visibility = value ? 'visible' : 'hidden'; });
   screenUI.add(controls, 'recognition').onChange((value) => { recognitionCanvas.style.visibility = value ? 'visible' : 'hidden'; });
 
   const recognitionUI = gui.addFolder('Recognition');
@@ -120,21 +119,21 @@ function initSpeechRecognition (onResultCallBack) {
 
 function initWebCam (videoEL) {
   function loadStream (stream) {
-    webcam.srcObject = stream;
-    webcam.onloadedmetadata = setCamParameters;
+    webcamEl.srcObject = stream;
+    webcamEl.onloadedmetadata = setCamParameters;
   }
 
   function setCamParameters () {
-    console.log(`Webcam ready: ${webcam.videoWidth}, ${webcam.videoHeight}`);
-    webcam.setAttribute('autoplay', true);
-    webcam.setAttribute('muted', true);
-    webcam.setAttribute('playsinline', true);
-    webcam.play();
+    console.log(`webcam ready: ${webcamEl.videoWidth}, ${webcamEl.videoHeight}`);
+    webcamEl.setAttribute('autoplay', true);
+    webcamEl.setAttribute('muted', true);
+    webcamEl.setAttribute('playsinline', true);
+    webcamEl.play();
   }
 
   navigator.mediaDevices.getUserMedia({ video: true, audio: false }).then(loadStream);
 
-  return webcam;
+  return webcamEl;
 }
 
 function initScene () {
@@ -143,17 +142,19 @@ function initScene () {
     alpha: true,
     canvas: glCanvas
   });
-  console.log(glCanvas.width, glCanvas.height);
   const scene = new THREE.Scene();
   const halfW = glCanvas.width * 0.5;
+  const tfX = 130;
   const halfH = glCanvas.height * 0.5;
+  const tfY = -150;
   const near = 1;
   const far = 1000;
+
   const camera = new THREE.OrthographicCamera(
-    halfW,
-    -halfW,
-    -halfH,
-    halfH,
+    halfW + tfX,
+    -halfW + tfX,
+    -halfH + tfY,
+    halfH + tfY,
     near,
     far
   );
@@ -166,7 +167,7 @@ function initScene () {
     halfH,
     0
   );
-  camera.updateProjectionMatrix(); 
+  camera.updateProjectionMatrix();
 
   const light = new THREE.HemisphereLight(0xffffff, 0xffffff, 1);
   scene.add(light);
@@ -179,7 +180,6 @@ function initScene () {
 
   const textureLoader = new THREE.TextureLoader();
   const texture = textureLoader.load('img/original.jpg');
-  // set the "color space" of the texture
   // texture.encoding = THREE.sRGBEncoding;
   // texture.premultiplyAlpha = true;
 
@@ -187,7 +187,7 @@ function initScene () {
     map: texture,
     color: new THREE.Color(0xFF0000)
   });
-  // material.blending = THREE.CustomBlending;
+  material.blending = THREE.CustomBlending;
   const mesh = new THREE.Mesh(geometry, material);
   scene.add(mesh);
   function render () {
@@ -232,43 +232,46 @@ function initMLModel (webcam) {
 
   function renderFacePoints () {
     requestAnimationFrame(renderFacePoints);
-    // console.log(`Rendering Face points: ${positions.length}`);
     if (positions.length === 0) return;
-    recognitionCtx.clearRect(0, 0, recognitionCanvas.width, recognitionCanvas.height);
-    recognitionCtx.save();
-    recognitionCtx.scale(recognitionCanvas.width / webcam.videoWidth, recognitionCanvas.height / webcam.videoHeight);
-    recognitionCtx.fillStyle = 'black';
+
+    const ctx = recognitionCanvas.getContext('2d');
+    ctx.clearRect(0, 0, recognitionCanvas.width, recognitionCanvas.height);
+    ctx.save();
+    ctx.scale(recognitionCanvas.width / webcam.videoWidth, recognitionCanvas.height / webcam.videoHeight);
+    ctx.fillStyle = 'black';
 
     if (drawTris) {
-      recognitionCtx.fillStyle = 'olive';
-      for (let i = 0; i < TRIANGULATION.length; i += 3) {
-        const i1 = TRIANGULATION[i];
-        const i2 = TRIANGULATION[i + 1];
-        const i3 = TRIANGULATION[i + 2];
-        recognitionCtx.beginPath();
-        recognitionCtx.moveTo(positions[i1][0], positions[i1][1]);
-        recognitionCtx.lineTo(positions[i2][0], positions[i2][1]);
-        recognitionCtx.lineTo(positions[i3][0], positions[i3][1]);
-        recognitionCtx.closePath();
-        recognitionCtx.fill();
+      ctx.fillStyle = 'olive';
+      for (let i = 0; i < triangulation.length; i += 3) {
+        const i1 = triangulation[i];
+        const i2 = triangulation[i + 1];
+        const i3 = triangulation[i + 2];
+        ctx.beginPath();
+        ctx.moveTo(positions[i1][0], positions[i1][1]);
+        ctx.lineTo(positions[i2][0], positions[i2][1]);
+        ctx.lineTo(positions[i3][0], positions[i3][1]);
+        ctx.closePath();
+        ctx.fill();
       }
     } else {
-      recognitionCtx.fillStyle = 'black';
+      ctx.fillStyle = 'black';
 
       for (const i of positions) {
         const x = i[0];
         const y = i[1];
-        recognitionCtx.fillRect(x, y, 2, 2);
+        ctx.fillRect(x, y, 2, 2);
       }
     }
-    recognitionCtx.restore();
+    ctx.restore();
   }
   loadModel();
   renderFacePoints();
 }
 
-function drawText (scene, msg) {
-
+function drawText (msg) {
+  const ctx = twoDCanvas.getContext('2d');
+  ctx.font = '48px serif';
+  ctx.fillText(msg, twoDCanvas.width / 2, twoDCanvas.height * 0.7);
 }
 
 function init () {
@@ -282,7 +285,9 @@ function init () {
   //   drawText(scene, transcript);
   // });
 
-  initWebCam('#webcam').onloadeddata = (event) => {
+  drawText("hello world!");
+
+  initWebCam(webcamEl).onloadeddata = (event) => {
     initMLModel(event.target);
   };
 }
