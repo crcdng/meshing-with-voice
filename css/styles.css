@@ -13,11 +13,19 @@ canvas { display: block; }
     border: 2px lightgrey solid;
 }
 
+#glcanvas {
+    z-index: 1;
+}
+
 #twodcanvas {
+    z-index: 3;
+}
+
+#recognitioncanvas {
     background-color: #fafafa;
     position: absolute;
     left: 640px;
     top: 380px;
-    z-index: 6;
+    z-index: 7;
     border: 2px lightgrey solid;
 }

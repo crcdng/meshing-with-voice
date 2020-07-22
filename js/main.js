@@ -1,15 +1,19 @@
-/* global dat, facemesh, requestAnimationFrame, Stats, THREE, TRIANGULATION */
+/* global dat, facemesh, positionBufferData, requestAnimationFrame, Stats, THREE, triangulation, uvs */
 
-let controls, ctx, drawTris, font, fontMaterial, glCanvas, renderer, stats, twoDCanvas, webcam;
+let controls, drawTris, font, fontMaterial, glCanvas, positions, recognitionCanvas, recognitionCtx, stats, twoDCanvas, webcam;
 
-function initWebPage () {
+function initWebPage (statsVisible, webcamVisible, twoDCanvasVisible) {
   glCanvas = document.getElementById('glcanvas');
   glCanvas.width = window.innerWidth;
   glCanvas.height = window.innerHeight;
+  recognitionCanvas = document.getElementById('recognitioncanvas');
+  recognitionCanvas.width = 480;
+  recognitionCanvas.height = 320;
+  recognitionCtx = recognitionCanvas.getContext('2d');
+
   twoDCanvas = document.getElementById('twodcanvas');
-  twoDCanvas.width = 480;
-  twoDCanvas.height = 320;
-  ctx = twoDCanvas.getContext('2d');
+  twoDCanvas.width = window.innerWidth;
+  twoDCanvas.height = window.innerHeight;
 
   webcam = document.getElementById('webcam');
   webcam.width = 480;
@@ -30,13 +34,17 @@ function initWebPage () {
       this.cameraZ = p5;
     }
   }
-  controls = new Controls(true, true, true, false, 4);
-  const gui = new dat.GUI();
 
+  stats.dom.style.visibility = statsVisible ? 'visible' : 'hidden';
+  webcam.style.visibility = webcamVisible ? 'visible' : 'hidden';
+  recognitionCanvas.style.visibility = twoDCanvasVisible ? 'visible' : 'hidden';
+
+  controls = new Controls(statsVisible, webcamVisible, twoDCanvasVisible, false, 4);
+  const gui = new dat.GUI();
   const screenUI = gui.addFolder('Screen');
   screenUI.add(controls, 'fps').onChange((value) => { stats.dom.style.visibility = value ? 'visible' : 'hidden'; });
   screenUI.add(controls, 'webcam').onChange((value) => { webcam.style.visibility = value ? 'visible' : 'hidden'; });
-  screenUI.add(controls, 'recognition').onChange((value) => { twoDCanvas.style.visibility = value ? 'visible' : 'hidden'; });
+  screenUI.add(controls, 'recognition').onChange((value) => { recognitionCanvas.style.visibility = value ? 'visible' : 'hidden'; });
 
   const recognitionUI = gui.addFolder('Recognition');
   recognitionUI.add(controls, 'tris').onChange((value) => { drawTris = value; });
@@ -64,7 +72,31 @@ function initSpeechRecognition (onResultCallBack) {
   recognition.start();
 
   recognition.onstart = function () {
-    console.log('Speech recognition service has started');
+    console.log('Speech recognition service started');
+  };
+
+  recognition.onsoundstart = function () {
+    console.log('Some sound is being received');
+  };
+
+  recognition.onsoundend = function (event) {
+    console.log('Sound has stopped being received');
+  };
+
+  recognition.onspeechstart = function () {
+    console.log('Speech has been detected');
+  };
+
+  recognition.onspeechend = function () {
+    console.log('Speech has stopped being detected');
+  };
+
+  recognition.onaudiostart = function () {
+    console.log('Audio capturing started');
+  };
+
+  recognition.onaudioend = function () {
+    console.log('Audio capturing ended');
   };
 
   recognition.onresult = function (event) {
@@ -79,6 +111,10 @@ function initSpeechRecognition (onResultCallBack) {
 
   recognition.onerror = function (event) {
     console.log(`Error occurred in speech recognition: ${event.error}`);
+  };
+
+  recognition.onend = function () {
+    console.log('Speech recognition service disconnected');
   };
 }
 
@@ -102,81 +138,70 @@ function initWebCam (videoEL) {
 }
 
 function initScene () {
-  function onResizeWindow () {
-    camera.aspect = window.innerWidth / window.innerHeight;
-    camera.updateProjectionMatrix();
-    renderer.setSize(glCanvas.width, glCanvas.height);
-  }
-
-  const scene = new THREE.Scene();
-
-  const camera = new THREE.PerspectiveCamera(
-    50,
-    window.innerWidth / window.innerHeight,
-    0.1,
-    1000
-  );
-
-  camera.position.x = window.innerWidth / 2 + 200;
-  camera.position.y = window.innerHeight / 2 + 50;
-  camera.position.z = 10; // controls.p5;
-  camera.lookAt(0, 0, 0); // controls.p5;
-
-  renderer = new THREE.WebGLRenderer({
+  const renderer = new THREE.WebGLRenderer({
+    antialias: true,
+    alpha: true,
     canvas: glCanvas
   });
-  renderer.setSize(glCanvas.width, glCanvas.height);
-  
-  window.addEventListener('resize', onResizeWindow, false);
+  console.log(glCanvas.width, glCanvas.height);
+  const scene = new THREE.Scene();
+  const halfW = glCanvas.width * 0.5;
+  const halfH = glCanvas.height * 0.5;
+  const near = 1;
+  const far = 1000;
+  const camera = new THREE.OrthographicCamera(
+    halfW,
+    -halfW,
+    -halfH,
+    halfH,
+    near,
+    far
+  );
+  camera.position.x = halfW;
+  camera.position.y = halfH;
+  camera.position.z = -60;
+  camera.zoom = 2;
+  camera.lookAt(
+    halfW,
+    halfH,
+    0
+  );
+  camera.updateProjectionMatrix(); 
 
-  var axes = new THREE.AxisHelper(500);
-  scene.add(axes);
-
-  const light = new THREE.HemisphereLight(0xffffff, 0xffffff, 0.2);
+  const light = new THREE.HemisphereLight(0xffffff, 0xffffff, 1);
   scene.add(light);
-  
-  var cubeGeometry = new THREE.BoxGeometry(100, 100, 100)
-  var cubeMaterial = new THREE.MeshLambertMaterial({color: 0xff0000, wireframe: false});
-  var cube = new THREE.Mesh(cubeGeometry, cubeMaterial);
 
-  cube.position.x = 0;
-  cube.position.y = 0;
-  cube.position.z = 0;
+  const geometry = new THREE.BufferGeometry();
+  geometry.setIndex(triangulation);
+  geometry.setAttribute('position', new THREE.Float32BufferAttribute(positionBufferData, 3));
+  geometry.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
+  geometry.computeVertexNormals();
 
-  scene.add(cube);
+  const textureLoader = new THREE.TextureLoader();
+  const texture = textureLoader.load('img/original.jpg');
+  // set the "color space" of the texture
+  // texture.encoding = THREE.sRGBEncoding;
+  // texture.premultiplyAlpha = true;
 
-  const fontLoader = new THREE.FontLoader();
-  fontLoader.load('font/FIGHTINGFORCE_Regular.json', (f) => {
-    font = f;
-    const color = 0xfffcfa;
-    fontMaterial = new THREE.MeshBasicMaterial({
-      color: color,
-      transparent: true,
-      opacity: 0.9,
-      side: THREE.DoubleSide
-    });
+  const material = new THREE.MeshPhongMaterial({
+    map: texture,
+    color: new THREE.Color(0xFF0000)
   });
-
-  function renderScene () {
-    requestAnimationFrame(renderScene);
-    stats.begin();
-    // const text = scene.getObjectByName('text');
-    // if (text != null) {
-    //   if (text.material.opacity <= 0) {
-    //     scene.remove(text);
-    //   } else {
-    //     text.material.opacity -= 0.01;
-    //   }
-    // }
+  // material.blending = THREE.CustomBlending;
+  const mesh = new THREE.Mesh(geometry, material);
+  scene.add(mesh);
+  function render () {
+    requestAnimationFrame(render);
+    if (positions == null || positions.length === 0) return;
+    positionBufferData = positions.reduce((acc, pos) => acc.concat(pos), []);
+    geometry.setAttribute('position', new THREE.Float32BufferAttribute(positionBufferData, 3));
+    geometry.attributes.position.needsUpdate = true;
     renderer.render(scene, camera);
-    stats.end();
   }
-
-  renderScene();
-  return scene;
+  render();
 }
 
-function initMLModel (scene, webcam) {
+function initMLModel (webcam) {
   function loadModel () {
     facemesh.load({
       maxContinuousChecks: 5,
@@ -196,7 +221,7 @@ function initMLModel (scene, webcam) {
     model.estimateFaces(webcam).then(updatePredictions);
   }
 
-  let positions = [];
+  positions = [];
 
   function updatePredictions (predictions) {
     predict(facemeshModel);
@@ -209,64 +234,56 @@ function initMLModel (scene, webcam) {
     requestAnimationFrame(renderFacePoints);
     // console.log(`Rendering Face points: ${positions.length}`);
     if (positions.length === 0) return;
-    ctx.clearRect(0, 0, twoDCanvas.width, twoDCanvas.height);
-    ctx.save();
-    ctx.scale(twoDCanvas.width / webcam.videoWidth, twoDCanvas.height / webcam.videoHeight);
-    ctx.fillStyle = 'black';
+    recognitionCtx.clearRect(0, 0, recognitionCanvas.width, recognitionCanvas.height);
+    recognitionCtx.save();
+    recognitionCtx.scale(recognitionCanvas.width / webcam.videoWidth, recognitionCanvas.height / webcam.videoHeight);
+    recognitionCtx.fillStyle = 'black';
 
     if (drawTris) {
-      ctx.fillStyle = 'olive';
+      recognitionCtx.fillStyle = 'olive';
       for (let i = 0; i < TRIANGULATION.length; i += 3) {
         const i1 = TRIANGULATION[i];
         const i2 = TRIANGULATION[i + 1];
         const i3 = TRIANGULATION[i + 2];
-        ctx.beginPath();
-        ctx.moveTo(positions[i1][0], positions[i1][1]);
-        ctx.lineTo(positions[i2][0], positions[i2][1]);
-        ctx.lineTo(positions[i3][0], positions[i3][1]);
-        ctx.closePath();
-        ctx.fill();
+        recognitionCtx.beginPath();
+        recognitionCtx.moveTo(positions[i1][0], positions[i1][1]);
+        recognitionCtx.lineTo(positions[i2][0], positions[i2][1]);
+        recognitionCtx.lineTo(positions[i3][0], positions[i3][1]);
+        recognitionCtx.closePath();
+        recognitionCtx.fill();
       }
     } else {
-      ctx.fillStyle = 'black';
+      recognitionCtx.fillStyle = 'black';
 
       for (const i of positions) {
         const x = i[0];
         const y = i[1];
-        ctx.fillRect(x, y, 2, 2);
+        recognitionCtx.fillRect(x, y, 2, 2);
       }
     }
-    ctx.restore();
+    recognitionCtx.restore();
   }
   loadModel();
   renderFacePoints();
 }
 
 function drawText (scene, msg) {
-  const shapes = font.generateShapes(msg, 22);
-  const geometry = new THREE.ShapeBufferGeometry(shapes);
-  geometry.computeBoundingBox();
-  const xMid = -0.5 * (geometry.boundingBox.max.x - geometry.boundingBox.min.x);
-  geometry.translate(xMid, 0, 0);
-  const text = new THREE.Mesh(geometry, fontMaterial);
-  text.position.z = 0;
-  text.name = 'text';
-  scene.add(text);
+
 }
 
 function init () {
-  initWebPage();
+  initWebPage(true, false, false);
 
-  const scene = initScene();
+  initScene();
 
-  initSpeechRecognition(function (transcript, confidence) {
-    console.log(`Speech recognition result: ${transcript}`);
-    console.log(`Speech recognition: Confidence: ${confidence}`);
-    drawText(scene, transcript);
-  });
+  // initSpeechRecognition(function (transcript, confidence) {
+  //   console.log(`Speech recognition result: ${transcript}`);
+  //   console.log(`Speech recognition: Confidence: ${confidence}`);
+  //   drawText(scene, transcript);
+  // });
 
   initWebCam('#webcam').onloadeddata = (event) => {
-    initMLModel(scene, event.target);
+    initMLModel(event.target);
   };
 }
 
