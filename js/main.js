@@ -178,9 +178,10 @@ function initWebPage (statsVisible, webcamVisible, twoDCanvasVisible) {
   webcamEl.width = 480;
   webcamEl.height = 320;
 
+  const statsContainer = document.getElementById('statscontainer');
   stats = new Stats();
   stats.showPanel(0);
-  document.body.appendChild(stats.dom);
+  statsContainer.appendChild(stats.dom);
 
   class Controls {
     constructor (p1, p2, p3, p4, p5) {
@@ -455,16 +456,21 @@ function init () {
   initWebCam(webcamEl).onloadeddata = (event) => {
     initMLModel(event.target);
   };
-  
+
   initSpeechRecognition(function (transcript, confidence) {
     console.log(`Speech recognition result: ${transcript}`);
     console.log(`Speech recognition: Confidence: ${confidence}`);
     drawText(transcript);
   });
-
-
 }
 
 window.onload = function () {
+  function showMain () {
+    document.getElementById('loader').style.display = 'none';
+    document.getElementById('main').style.display = 'block';
+  }
+
   init();
+
+  setTimeout(showMain, 4000);
 };

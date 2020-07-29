@@ -13,14 +13,19 @@
 	</head>
 
 	<body>
-		<canvas id="glcanvas"></canvas> 
-		<div id="datguicontainer"></div>
-		<canvas id="twodcanvas"></canvas> 
-		<video muted id="webcam"></video> 
-		<canvas id="recognitioncanvas"></canvas> 
+		<div id="loader"></div>
+		<div id="main" class="fadein" style="display:none;">
+			<canvas id="glcanvas"></canvas> 
+			<div id="statscontainer"></div>
+			<div id="datguicontainer"></div>
+			<canvas id="twodcanvas"></canvas> 
+			<video muted id="webcam"></video> 
+			<canvas id="recognitioncanvas"></canvas>
+		</div> 
 		<script src="js/triangulation.js"></script>
 		<script src="js/textureMap.js"></script>
 		<script src="js/positionBufferData.js"></script>
 		<script src="js/main.js"></script>
+
 	</body>
 </html>
