@@ -1,6 +1,170 @@
-/* global dat, facemesh, positionBufferData, requestAnimationFrame, Stats, THREE, triangulation, uvs */
+/* global cancelAnimationFrame, dat, facemesh, positionBufferData, requestAnimationFrame, Stats, THREE, triangulation, uvs */
 
-let controls, drawTris, font, fontMaterial, glCanvas, positions, recognitionCanvas, stats, twoDCanvas, webcamEl;
+let controls, drawTris, font, fontMaterial, glCanvas, positions, recognitionCanvas, stats, webcamEl;
+
+class Point {
+  constructor (x, y) {
+    x = x || 0;
+    y = y || x || 0;
+
+    this._sX = x;
+    this._sY = y;
+  }
+
+  set (x, y) {
+    x = x || 0;
+    y = y || x || 0;
+
+    this._sX = x;
+    this._sY = y;
+  }
+
+  add (point) {
+    this.x += point.x;
+    this.y += point.y;
+  }
+
+  multiply (point) {
+    this.x *= point.x;
+    this.y *= point.y;
+  }
+
+  reset () {
+    this.x = this._sX;
+    this.y = this._sY;
+    return this;
+  }
+}
+
+class Particle {
+  constructor (ctx) {
+    this.ctx = ctx;
+    this.friction = new Point(0.98);
+    this.reset();
+  }
+
+  reset () {
+    this.x = this.startPos.x;
+    this.y = this.startPos.y;
+    this.life = Math.round(Math.random() * 300);
+    this.isActive = true;
+    this.v.reset();
+    this.a.reset();
+  }
+
+  tick () {
+    if (!this.isActive) return;
+    this.physics();
+    this.checkLife();
+    this.draw();
+    return this.isActive;
+  }
+
+  checkLife () {
+    this.life -= 1;
+    this.isActive = !(this.life < 1);
+  }
+
+  draw () {
+    this.ctx.fillRect(this.x, this.y, 1, 1);
+  }
+
+  physics () {
+    this.a.x = (Math.random() - 0.5) * 0.8;
+    this.a.y = (Math.random() - 0.5) * 0.8;
+
+    this.v.add(this.a);
+    this.v.multiply(this.friction);
+
+    this.x += this.v.x;
+    this.y += this.v.y;
+
+    this.x = Math.round(this.x * 10) / 10;
+    this.y = Math.round(this.y * 10) / 10;
+  }
+}
+
+class ParticleText {
+  constructor (ctx, text) {
+    this.ctx = ctx;
+    this.canvas = ctx.canvas;
+    this.text = text;
+    this.particles = [];
+    this.clearLoopId = null;
+  }
+
+  clearCanvas () {
+    this.ctx.fillStyle = 'rgba(0,0,0,0.2)';
+    this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+  }
+
+  showText () {
+    this.ctx.fillStyle = '#2c87c4';
+    let isAlive = false;
+
+    for (const p of this.particles) {
+      if (p.tick()) { isAlive = true; }
+    }
+
+    if (!isAlive) {
+      this.resetParticles();
+    }
+  }
+
+  startClearLoop () {
+    function startLoop () {
+      this.clearCanvas();
+      requestAnimationFrame(startLoop);
+    }
+    this.clearLoopId = requestAnimationFrame(startLoop);
+  }
+
+  stopClearLoop () {
+    cancelAnimationFrame(this.clearLoopId);
+  }
+
+  createParticle (x, y) {
+    this.particles.push(new Particle(this.ctx, x, y));
+  }
+
+  createParticles () {
+    function checkAlpha (pixels, i) {
+      return pixels[i * 4 + 3] > 0;
+    }
+
+    var textSize = this.ctx.measureText(this.text);
+    this.ctx.fillText(
+      this.text,
+      Math.round((this.canvas.width / 2) - (textSize.width / 2)),
+      Math.round(this.canvas.height / 2)
+    );
+
+    var imageData = this.ctx.getImageData(1, 1, this.canvas.width, this.canvas.height);
+    var pixels = imageData.data;
+    var dataLength = imageData.width * imageData.height;
+
+    for (let i = 0; i < dataLength; i++) {
+      var currentRow = Math.floor(i / imageData.width);
+      var currentColumn = i - Math.floor(i / imageData.height);
+
+      if (currentRow % 2 || currentColumn % 2) {
+        continue;
+      }
+
+      if (checkAlpha(pixels, i)) {
+        const cy = ~~(i / imageData.width);
+        const cx = ~~(i - (cy * imageData.width));
+        this.createParticle(cx, cy);
+      }
+    }
+  }
+
+  resetParticles () {
+    for (const p of this.particles) {
+      p.reset();
+    }
+  }
+}
 
 function initWebPage (statsVisible, webcamVisible, twoDCanvasVisible) {
   glCanvas = document.getElementById('glcanvas');
@@ -9,10 +173,6 @@ function initWebPage (statsVisible, webcamVisible, twoDCanvasVisible) {
   recognitionCanvas = document.getElementById('recognitioncanvas');
   recognitionCanvas.width = 480;
   recognitionCanvas.height = 320;
-
-  twoDCanvas = document.getElementById('twodcanvas');
-  twoDCanvas.width = window.innerWidth;
-  twoDCanvas.height = window.innerHeight;
 
   webcamEl = document.getElementById('webcam');
   webcamEl.width = 480;
@@ -39,7 +199,7 @@ function initWebPage (statsVisible, webcamVisible, twoDCanvasVisible) {
   recognitionCanvas.style.visibility = twoDCanvasVisible ? 'visible' : 'hidden';
 
   controls = new Controls(statsVisible, webcamVisible, twoDCanvasVisible, false, 4);
-  const gui = new dat.GUI();
+  const gui = new dat.GUI({ autoPlace: false });
   const screenUI = gui.addFolder('Screen');
   screenUI.add(controls, 'fps').onChange((value) => { stats.dom.style.visibility = value ? 'visible' : 'hidden'; });
   screenUI.add(controls, 'webcam').onChange((value) => { webcamEl.style.visibility = value ? 'visible' : 'hidden'; });
@@ -51,6 +211,9 @@ function initWebPage (statsVisible, webcamVisible, twoDCanvasVisible) {
   const sceneUI = gui.addFolder('Scene');
   sceneUI.add(controls, 'cameraZ', -20, 20);
   screenUI.open();
+
+  const guiContainer = document.getElementById('datguicontainer');
+  guiContainer.appendChild(gui.domElement);
 }
 
 function initSpeechRecognition (onResultCallBack) {
@@ -268,9 +431,16 @@ function initMLModel (webcam) {
   renderFacePoints();
 }
 
-function drawText (msg) {
+function initTextArea (canvasId) {
+  const twoDCanvas = document.getElementById(canvasId);
+  twoDCanvas.width = window.innerWidth;
+  twoDCanvas.height = window.innerHeight;
   const ctx = twoDCanvas.getContext('2d');
   ctx.clearRect(0, 0, twoDCanvas.width, twoDCanvas.height);
+  const text = new ParticleText(ctx);
+}
+
+function drawText (msg) {
   ctx.font = '48px serif';
   ctx.fillText(msg, twoDCanvas.width / 2, twoDCanvas.height * 0.7);
 }
@@ -280,15 +450,19 @@ function init () {
 
   initScene();
 
+  initTextArea('twodcanvas');
+
   initWebCam(webcamEl).onloadeddata = (event) => {
     initMLModel(event.target);
   };
-
+  
   initSpeechRecognition(function (transcript, confidence) {
     console.log(`Speech recognition result: ${transcript}`);
     console.log(`Speech recognition: Confidence: ${confidence}`);
     drawText(transcript);
   });
+
+
 }
 
 window.onload = function () {
