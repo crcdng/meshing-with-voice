@@ -1,6 +1,14 @@
 /* global cancelAnimationFrame, dat, facemesh, positionBufferData, requestAnimationFrame, Stats, THREE, triangulation, uvs */
 
-let controls, drawTris, font, fontMaterial, glCanvas, positions, recognitionCanvas, stats, webcamEl;
+let controls,
+  drawTris,
+  font,
+  fontMaterial,
+  glCanvas,
+  positions,
+  recognitionCanvas,
+  stats,
+  webcamEl;
 
 class Point {
   constructor (x, y) {
@@ -9,6 +17,7 @@ class Point {
 
     this.sX = x;
     this.sY = y;
+    this.reset();
   }
 
   set (x, y) {
@@ -50,6 +59,8 @@ class Particle {
   reset () {
     this.x = this.startPos.x;
     this.y = this.startPos.y;
+    console.log(this.x, this.y);
+
     this.life = Math.round(Math.random() * 300);
     this.isActive = true;
     this.v.reset();
@@ -65,11 +76,12 @@ class Particle {
   }
 
   checkLife () {
-    this.life -= 1;
+    this.life -= 0.1;
     this.isActive = !(this.life < 1);
   }
 
   draw () {
+    console.log(this.x, this.y);
     this.ctx.fillRect(this.x, this.y, 1, 1);
   }
 
@@ -94,6 +106,7 @@ class ParticleText {
     this.canvas = ctx.canvas;
     this.text = text;
     this.particles = [];
+    this.animLoopId = null;
     this.clearLoopId = null;
   }
 
@@ -102,25 +115,35 @@ class ParticleText {
     this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
   }
 
-  showText () {
-    this.ctx.fillStyle = '#2c87c4';
-    let isAlive = false;
+  startAnimLoop () {
+    const startLoop = () => {
+      this.ctx.fillStyle = '#2c87c4';
+      let isAlive = false;
 
-    for (const p of this.particles) {
-      if (p.tick()) { isAlive = true; }
-    }
+      for (const p of this.particles) {
+        if (p.tick()) isAlive = true;
+      }
 
-    if (!isAlive) {
-      this.resetParticles();
-    }
+      if (!isAlive) {
+        this.resetParticles();
+        setTimeout(() => {
+          requestAnimationFrame(startLoop);
+        }, 500);
+      }
+    };
+    this.animLoopId = requestAnimationFrame(startLoop);
   }
 
   startClearLoop () {
-    function startLoop () {
+    const startLoop = () => {
       this.clearCanvas();
       requestAnimationFrame(startLoop);
-    }
+    };
     this.clearLoopId = requestAnimationFrame(startLoop);
+  }
+
+  stopAnimLoop () {
+    cancelAnimationFrame(this.animLoopId);
   }
 
   stopClearLoop () {
@@ -132,18 +155,23 @@ class ParticleText {
   }
 
   createParticles () {
-    function checkAlpha (pixels, i) {
-      return pixels[i * 4 + 3] > 0;
+    function checkAlpha (pix, i) {
+      return pix[i * 4 + 3] > 0;
     }
 
-    var textSize = this.ctx.measureText(this.text);
+    const textSize = this.ctx.measureText(this.text);
     this.ctx.fillText(
       this.text,
-      Math.round((this.canvas.width / 2) - (textSize.width / 2)),
+      Math.round(this.canvas.width / 2 - textSize.width / 2),
       Math.round(this.canvas.height / 2)
     );
 
-    var imageData = this.ctx.getImageData(1, 1, this.canvas.width, this.canvas.height);
+    var imageData = this.ctx.getImageData(
+      1,
+      1,
+      this.canvas.width,
+      this.canvas.height
+    );
     var pixels = imageData.data;
     var dataLength = imageData.width * imageData.height;
 
@@ -157,7 +185,7 @@ class ParticleText {
 
       if (checkAlpha(pixels, i)) {
         const cy = ~~(i / imageData.width);
-        const cx = ~~(i - (cy * imageData.width));
+        const cx = ~~(i - cy * imageData.width);
         this.createParticle(cx, cy);
       }
     }
@@ -203,15 +231,29 @@ function initMain (statsVisible, webcamVisible, twoDCanvasVisible) {
   webcamEl.style.visibility = webcamVisible ? 'visible' : 'hidden';
   recognitionCanvas.style.visibility = twoDCanvasVisible ? 'visible' : 'hidden';
 
-  controls = new Controls(statsVisible, webcamVisible, twoDCanvasVisible, false, 4);
+  controls = new Controls(
+    statsVisible,
+    webcamVisible,
+    twoDCanvasVisible,
+    false,
+    4
+  );
   const gui = new dat.GUI({ autoPlace: false });
   const screenUI = gui.addFolder('Screen');
-  screenUI.add(controls, 'fps').onChange((value) => { stats.dom.style.visibility = value ? 'visible' : 'hidden'; });
-  screenUI.add(controls, 'webcam').onChange((value) => { webcamEl.style.visibility = value ? 'visible' : 'hidden'; });
-  screenUI.add(controls, 'recognition').onChange((value) => { recognitionCanvas.style.visibility = value ? 'visible' : 'hidden'; });
+  screenUI.add(controls, 'fps').onChange((value) => {
+    stats.dom.style.visibility = value ? 'visible' : 'hidden';
+  });
+  screenUI.add(controls, 'webcam').onChange((value) => {
+    webcamEl.style.visibility = value ? 'visible' : 'hidden';
+  });
+  screenUI.add(controls, 'recognition').onChange((value) => {
+    recognitionCanvas.style.visibility = value ? 'visible' : 'hidden';
+  });
 
   const recognitionUI = gui.addFolder('Recognition');
-  recognitionUI.add(controls, 'tris').onChange((value) => { drawTris = value; });
+  recognitionUI.add(controls, 'tris').onChange((value) => {
+    drawTris = value;
+  });
 
   const sceneUI = gui.addFolder('Scene');
   sceneUI.add(controls, 'cameraZ', -20, 20);
@@ -293,14 +335,18 @@ function initWebCam (videoEL) {
   }
 
   function setCamParameters () {
-    console.log(`webcam ready: ${webcamEl.videoWidth}, ${webcamEl.videoHeight}`);
+    console.log(
+      `webcam ready: ${webcamEl.videoWidth}, ${webcamEl.videoHeight}`
+    );
     webcamEl.setAttribute('autoplay', true);
     webcamEl.setAttribute('muted', true);
     webcamEl.setAttribute('playsinline', true);
     webcamEl.play();
   }
 
-  navigator.mediaDevices.getUserMedia({ video: true, audio: false }).then(loadStream);
+  navigator.mediaDevices
+    .getUserMedia({ video: true, audio: false })
+    .then(loadStream);
 
   return webcamEl;
 }
@@ -331,11 +377,7 @@ function initScene () {
   camera.position.y = halfH;
   camera.position.z = -60;
   camera.zoom = 2;
-  camera.lookAt(
-    halfW,
-    halfH,
-    0
-  );
+  camera.lookAt(halfW, halfH, 0);
   camera.updateProjectionMatrix();
 
   const light = new THREE.HemisphereLight(0xffffff, 0xffffff, 1);
@@ -343,7 +385,10 @@ function initScene () {
 
   const geometry = new THREE.BufferGeometry();
   geometry.setIndex(triangulation);
-  geometry.setAttribute('position', new THREE.Float32BufferAttribute(positionBufferData, 3));
+  geometry.setAttribute(
+    'position',
+    new THREE.Float32BufferAttribute(positionBufferData, 3)
+  );
   geometry.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
   geometry.computeVertexNormals();
 
@@ -354,7 +399,7 @@ function initScene () {
 
   const material = new THREE.MeshPhongMaterial({
     map: texture,
-    color: new THREE.Color(0xFF0000)
+    color: new THREE.Color(0xff0000)
   });
   material.blending = THREE.CustomBlending;
   const mesh = new THREE.Mesh(geometry, material);
@@ -363,7 +408,10 @@ function initScene () {
     requestAnimationFrame(render);
     if (positions == null || positions.length === 0) return;
     positionBufferData = positions.reduce((acc, pos) => acc.concat(pos), []);
-    geometry.setAttribute('position', new THREE.Float32BufferAttribute(positionBufferData, 3));
+    geometry.setAttribute(
+      'position',
+      new THREE.Float32BufferAttribute(positionBufferData, 3)
+    );
     geometry.attributes.position.needsUpdate = true;
     renderer.render(scene, camera);
   }
@@ -372,13 +420,15 @@ function initScene () {
 
 function initMLModel (webcam) {
   function loadModel () {
-    facemesh.load({
-      maxContinuousChecks: 5,
-      detectionConfidence: 0.9,
-      maxFaces: 1,
-      iouThreshold: 0.3,
-      scoreThreshold: 0.75
-    }).then(predict);
+    facemesh
+      .load({
+        maxContinuousChecks: 5,
+        detectionConfidence: 0.9,
+        maxFaces: 1,
+        iouThreshold: 0.3,
+        scoreThreshold: 0.75
+      })
+      .then(predict);
   }
 
   let facemeshModel;
@@ -405,7 +455,10 @@ function initMLModel (webcam) {
     const ctx = recognitionCanvas.getContext('2d');
     ctx.clearRect(0, 0, recognitionCanvas.width, recognitionCanvas.height);
     ctx.save();
-    ctx.scale(recognitionCanvas.width / webcam.videoWidth, recognitionCanvas.height / webcam.videoHeight);
+    ctx.scale(
+      recognitionCanvas.width / webcam.videoWidth,
+      recognitionCanvas.height / webcam.videoHeight
+    );
     ctx.fillStyle = 'black';
 
     if (drawTris) {
@@ -438,16 +491,16 @@ function initMLModel (webcam) {
 
 function initTextArea (canvasId) {
   const twoDCanvas = document.getElementById(canvasId);
-  twoDCanvas.width = window.innerWidth;
-  twoDCanvas.height = window.innerHeight;
+  twoDCanvas.width = window.innerWidth; // TODO
+  twoDCanvas.height = window.innerHeight; // TODO
   const ctx = twoDCanvas.getContext('2d');
   ctx.clearRect(0, 0, twoDCanvas.width, twoDCanvas.height);
-  const text = new ParticleText(ctx);
+  // Particletext
 }
 
 function drawText (msg) {
-  ctx.font = '48px serif';
-  ctx.fillText(msg, twoDCanvas.width / 2, twoDCanvas.height * 0.7);
+  // ctx.font = '48px serif';
+  // ctx.fillText(msg, twoDCanvas.width / 2, twoDCanvas.height * 0.7);
 }
 
 function init () {
@@ -483,7 +536,8 @@ window.onload = function () {
   ctx.fillStyle = '#000';
   const text = new ParticleText(ctx, 'loading');
   text.createParticles();
-  text.showText();
+  text.startAnimLoop();
+  // text.startClearLoop();
 
   init();
 
