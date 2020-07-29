@@ -7,16 +7,16 @@ class Point {
     x = x || 0;
     y = y || x || 0;
 
-    this._sX = x;
-    this._sY = y;
+    this.sX = x;
+    this.sY = y;
   }
 
   set (x, y) {
     x = x || 0;
     y = y || x || 0;
 
-    this._sX = x;
-    this._sY = y;
+    this.sX = x;
+    this.sY = y;
   }
 
   add (point) {
@@ -30,15 +30,19 @@ class Point {
   }
 
   reset () {
-    this.x = this._sX;
-    this.y = this._sY;
+    this.x = this.sX;
+    this.y = this.sY;
     return this;
   }
 }
 
 class Particle {
-  constructor (ctx) {
+  constructor (ctx, x, y) {
     this.ctx = ctx;
+    this.startPos = new Point(x, y);
+    this.v = new Point();
+    this.a = new Point();
+
     this.friction = new Point(0.98);
     this.reset();
   }
@@ -166,17 +170,17 @@ class ParticleText {
   }
 }
 
-function initWebPage (statsVisible, webcamVisible, twoDCanvasVisible) {
+function initMain (statsVisible, webcamVisible, twoDCanvasVisible) {
   glCanvas = document.getElementById('glcanvas');
   glCanvas.width = window.innerWidth;
   glCanvas.height = window.innerHeight;
   recognitionCanvas = document.getElementById('recognitioncanvas');
-  recognitionCanvas.width = 480;
-  recognitionCanvas.height = 320;
+  recognitionCanvas.width = 360;
+  recognitionCanvas.height = 270;
 
   webcamEl = document.getElementById('webcam');
-  webcamEl.width = 480;
-  webcamEl.height = 320;
+  webcamEl.width = 360;
+  webcamEl.height = 270;
 
   const statsContainer = document.getElementById('statscontainer');
   stats = new Stats();
@@ -447,7 +451,7 @@ function drawText (msg) {
 }
 
 function init () {
-  initWebPage(true, false, false);
+  initMain(true, false, false);
 
   initScene();
 
@@ -469,6 +473,17 @@ window.onload = function () {
     document.getElementById('loader').style.display = 'none';
     document.getElementById('main').style.display = 'block';
   }
+
+  const loaderCanvas = document.getElementById('loadercanvas');
+  loaderCanvas.width = window.innerWidth;
+  loaderCanvas.height = window.innerHeight;
+  const ctx = loaderCanvas.getContext('2d');
+  ctx.font = 'bold 200px "Arial"';
+  ctx.textBaseline = 'center';
+  ctx.fillStyle = '#000';
+  const text = new ParticleText(ctx, 'loading');
+  text.createParticles();
+  text.showText();
 
   init();
 
