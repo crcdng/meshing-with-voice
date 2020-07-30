@@ -5,21 +5,21 @@
 		<meta name="viewport" content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0">
 		<title>Meshing With Voice</title>
 		<link rel="stylesheet" href="css/styles.css"> 
-		<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs"></script>
-		<script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/facemesh"></script>		
+		<script src="lib/tfjs.min.js"></script>
+		<script src="lib/facemesh-modified.min.js"></script>		
 		<script src="lib/three.min.js"></script>
 		<script src="lib/stats.min.js"></script>
 		<script src="lib/dat.gui.min.js"></script>
 	</head>
 
 	<body>
+		<div id="datguicontainer"></div>
 		<div id="loader">
 			<canvas id="loadingcanvas"></canvas>
 		</div>
 		<div id="main" class="fadein" style="display:none;">
 			<canvas id="glcanvas"></canvas> 
 			<div id="statscontainer"></div>
-			<div id="datguicontainer"></div>
 			<canvas id="twodcanvas"></canvas> 
 			<video muted id="webcam"></video> 
 			<canvas id="recognitioncanvas"></canvas>

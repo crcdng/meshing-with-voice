@@ -1,6 +1,7 @@
 /* global cancelAnimationFrame, dat, facemesh, positionBufferData, requestAnimationFrame, Stats, THREE, triangulation, uvs */
 
 let controls,
+  datGui,
   drawTris,
   font,
   fontMaterial,
@@ -247,8 +248,8 @@ function initMain (statsVisible, webcamVisible, twoDCanvasVisible) {
     false,
     4
   );
-  const gui = new dat.GUI({ autoPlace: false });
-  const screenUI = gui.addFolder('Screen');
+
+  const screenUI = datGui.addFolder('Screen');
   screenUI.add(controls, 'fps').onChange((value) => {
     stats.dom.style.visibility = value ? 'visible' : 'hidden';
   });
@@ -259,17 +260,14 @@ function initMain (statsVisible, webcamVisible, twoDCanvasVisible) {
     recognitionCanvas.style.visibility = value ? 'visible' : 'hidden';
   });
 
-  const recognitionUI = gui.addFolder('Recognition');
+  const recognitionUI = datGui.addFolder('Recognition');
   recognitionUI.add(controls, 'tris').onChange((value) => {
     drawTris = value;
   });
 
-  const sceneUI = gui.addFolder('Scene');
+  const sceneUI = datGui.addFolder('Scene');
   sceneUI.add(controls, 'cameraZ', -20, 20);
-  screenUI.open();
 
-  const guiContainer = document.getElementById('datguicontainer');
-  guiContainer.appendChild(gui.domElement);
 }
 
 function initSpeechRecognition (onResultCallBack) {
@@ -537,6 +535,10 @@ window.onload = function () {
     document.getElementById('main').style.display = 'block';
   }
 
+  const guiContainer = document.getElementById('datguicontainer');
+  datGui = new dat.GUI({ autoPlace: false });
+  guiContainer.appendChild(datGui.domElement);
+
   const loadingCanvas = document.getElementById('loadingcanvas');
   loadingCanvas.width = window.innerWidth;
   loadingCanvas.height = window.innerHeight;
@@ -545,6 +547,20 @@ window.onload = function () {
   particleText.init('loading...');
   particleText.start();
 
+  const loadingUI = datGui.addFolder('Loading Text');
+
+  loadingUI.addColor(particleText, 'color');
+  loadingUI.add(particleText, 'frictionX', 0, 5);
+  loadingUI.add(particleText, 'frictionY', 0, 5);
+  loadingUI.add(particleText, 'directionX', 0, 1);
+  loadingUI.add(particleText, 'directionY', 0, 1);
+  loadingUI.add(particleText, 'extentX', 0, 1);
+  loadingUI.add(particleText, 'extentY', 0, 1);
+  loadingUI.add(particleText, 'lifespan', 30, 1500);
+  datGui.remember(particleText);
+  loadingUI.open();
+
+  
   init();
 
   setTimeout(showMain, 12000);
