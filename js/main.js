@@ -3,8 +3,6 @@
 let controls,
   datGui,
   drawTris,
-  font,
-  fontMaterial,
   glCanvas,
   positions,
   recognitionCanvas,
@@ -208,7 +206,7 @@ class ParticleText {
   }
 }
 
-function initMain (statsVisible, webcamVisible, twoDCanvasVisible) {
+function initMain (statsVisible, webcamVisible, recognitionCanvasVisible) {
   glCanvas = document.getElementById('glcanvas');
   glCanvas.width = window.innerWidth;
   glCanvas.height = window.innerHeight;
@@ -239,12 +237,12 @@ function initMain (statsVisible, webcamVisible, twoDCanvasVisible) {
 
   stats.dom.style.visibility = statsVisible ? 'visible' : 'hidden';
   webcamEl.style.visibility = webcamVisible ? 'visible' : 'hidden';
-  recognitionCanvas.style.visibility = twoDCanvasVisible ? 'visible' : 'hidden';
+  recognitionCanvas.style.visibility = recognitionCanvasVisible ? 'visible' : 'hidden';
 
   controls = new Controls(
     statsVisible,
     webcamVisible,
-    twoDCanvasVisible,
+    recognitionCanvasVisible,
     false,
     4
   );
@@ -267,7 +265,6 @@ function initMain (statsVisible, webcamVisible, twoDCanvasVisible) {
 
   const sceneUI = datGui.addFolder('Scene');
   sceneUI.add(controls, 'cameraZ', -20, 20);
-
 }
 
 function initSpeechRecognition (onResultCallBack) {
@@ -497,25 +494,28 @@ function initMLModel (webcam) {
 }
 
 function initTextArea (canvasId) {
-  const twoDCanvas = document.getElementById(canvasId);
-  twoDCanvas.width = window.innerWidth; // TODO
-  twoDCanvas.height = window.innerHeight; // TODO
-  const ctx = twoDCanvas.getContext('2d');
-  ctx.clearRect(0, 0, twoDCanvas.width, twoDCanvas.height);
-  // Particletext
+  const textCanvas = document.getElementById(canvasId);
+  textCanvas.width = window.innerWidth; // TODO
+  textCanvas.height = window.innerHeight; // TODO
+  const ctx = textCanvas.getContext('2d');
+  ctx.clearRect(0, 0, textCanvas.width, textCanvas.height);
+  return textCanvas;
 }
 
-function drawText (msg) {
-  // ctx.font = '48px serif';
-  // ctx.fillText(msg, twoDCanvas.width / 2, twoDCanvas.height * 0.7);
+function drawText (canvas, msg, x, y) {
+  const ctx = canvas.getContext('2d');
+  console.log(msg, x, y);
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  ctx.font = '48px serif';
+  ctx.fillText(msg, x, y);
 }
 
 function init () {
-  initMain(true, false, false);
+  initMain(false, false, false);
 
   initScene();
 
-  initTextArea('twodcanvas');
+  const textCanvas = initTextArea('textcanvas');
 
   initWebCam(webcamEl).onloadeddata = (event) => {
     initMLModel(event.target);
@@ -524,7 +524,7 @@ function init () {
   initSpeechRecognition(function (transcript, confidence) {
     console.log(`Speech recognition result: ${transcript}`);
     console.log(`Speech recognition: Confidence: ${confidence}`);
-    drawText(transcript);
+    drawText(textCanvas, transcript, textCanvas.width / 2, textCanvas.height * 0.7);
   });
 }
 
@@ -558,9 +558,7 @@ window.onload = function () {
   loadingUI.add(particleText, 'extentY', 0, 1);
   loadingUI.add(particleText, 'lifespan', 30, 1500);
   datGui.remember(particleText);
-  loadingUI.open();
 
-  
   init();
 
   setTimeout(showMain, 12000);
