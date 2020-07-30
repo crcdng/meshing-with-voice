@@ -46,22 +46,31 @@ class Point {
 }
 
 class Particle {
-  constructor (ctx, x, y) {
+  constructor (ctx, x, y, lifespan, frictionX, frictionY, directionX, directionY, extentX, extentY) {
     this.ctx = ctx;
     this.startPos = new Point(x, y);
+    this.friction = new Point(frictionX, frictionY);
+    this.directionX = directionX;
+    this.directionY = directionY;
+    this.extentX = extentX;
+    this.extentY = extentY;
+    this.lifespan = lifespan;
     this.v = new Point();
     this.a = new Point();
-
-    this.friction = new Point(0.98);
     this.reset();
   }
 
-  reset () {
+  reset (lifespan, frictionX, frictionY, directionX, directionY, extentX, extentY) {
     this.x = this.startPos.x;
     this.y = this.startPos.y;
-    console.log(this.x, this.y);
-
-    this.life = Math.round(Math.random() * 300);
+    this.lifespan = lifespan;
+    this.friction.x = frictionX;
+    this.friction.y = frictionY;
+    this.directionX = directionX;
+    this.directionY = directionY;
+    this.extentX = extentX;
+    this.extentY = extentY;
+    this.life = Math.round(Math.random() * this.lifespan);
     this.isActive = true;
     this.v.reset();
     this.a.reset();
@@ -76,22 +85,20 @@ class Particle {
   }
 
   checkLife () {
-    this.life -= 0.1;
-    this.isActive = !(this.life < 1);
+    this.life -= 1;
+    this.isActive = (this.life >= 1);
   }
 
   draw () {
-    console.log(this.x, this.y);
-    this.ctx.fillRect(this.x, this.y, 1, 1);
+    this.ctx.fillRect(this.x, this.y, 2, 2);
   }
 
   physics () {
-    this.a.x = (Math.random() - 0.5) * 0.8;
-    this.a.y = (Math.random() - 0.5) * 0.8;
+    this.a.x = (Math.random() - this.directionX) * this.extentX;
+    this.a.y = (Math.random() - this.directionY) * this.extentY;
 
     this.v.add(this.a);
     this.v.multiply(this.friction);
-
     this.x += this.v.x;
     this.y += this.v.y;
 
@@ -101,13 +108,24 @@ class Particle {
 }
 
 class ParticleText {
-  constructor (ctx, text) {
-    this.ctx = ctx;
-    this.canvas = ctx.canvas;
-    this.text = text;
+  constructor (canvas) {
+    this.canvas = canvas;
+    this.ctx = this.canvas.getContext('2d');
     this.particles = [];
-    this.animLoopId = null;
-    this.clearLoopId = null;
+    this.clearLoopId = 0;
+    this.animLoopId = 0;
+    this.color = '#c46b2c';
+    this.frictionX = 0.98;
+    this.frictionY = 0.98;
+    this.directionX = 0.5;
+    this.directionY = 0.5;
+    this.extentX = 0.5;
+    this.extentY = 0.5;
+    this.lifespan = 300;
+  }
+
+  checkAlpha (pixels, i) {
+    return pixels[i * 4 + 3] > 0;
   }
 
   clearCanvas () {
@@ -115,86 +133,77 @@ class ParticleText {
     this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
   }
 
-  startAnimLoop () {
-    const startLoop = () => {
-      this.ctx.fillStyle = '#2c87c4';
-      let isAlive = false;
-
-      for (const p of this.particles) {
-        if (p.tick()) isAlive = true;
-      }
-
-      if (!isAlive) {
-        this.resetParticles();
-        setTimeout(() => {
-          requestAnimationFrame(startLoop);
-        }, 500);
-      }
-    };
-    this.animLoopId = requestAnimationFrame(startLoop);
-  }
-
-  startClearLoop () {
-    const startLoop = () => {
-      this.clearCanvas();
-      requestAnimationFrame(startLoop);
-    };
-    this.clearLoopId = requestAnimationFrame(startLoop);
-  }
-
-  stopAnimLoop () {
-    cancelAnimationFrame(this.animLoopId);
-  }
-
-  stopClearLoop () {
-    cancelAnimationFrame(this.clearLoopId);
-  }
-
   createParticle (x, y) {
-    this.particles.push(new Particle(this.ctx, x, y));
+    this.particles.push(new Particle(this.ctx, x, y, this.lifespan, this.frictionX, this.frictionY, this.directionX, this.directionY, this.extentX, this.extentY));
   }
 
-  createParticles () {
-    function checkAlpha (pix, i) {
-      return pix[i * 4 + 3] > 0;
+  resetParticles () {
+    for (const p of this.particles) {
+      p.reset(this.lifespan, this.frictionX, this.frictionY, this.directionX, this.directionY, this.extentX, this.extentY);
     }
+  }
 
-    const textSize = this.ctx.measureText(this.text);
+  init (text, font = 'bold 100px "Arial"', baseline = 'center', fillstyle = '#000') {
+    this.ctx.font = font;
+    this.ctx.textBaseline = baseline;
+    this.ctx.fillStyle = fillstyle;
+    const textSize = this.ctx.measureText(text);
     this.ctx.fillText(
-      this.text,
-      Math.round(this.canvas.width / 2 - textSize.width / 2),
+      text,
+      Math.round((this.canvas.width / 2) - (textSize.width / 2)),
       Math.round(this.canvas.height / 2)
     );
 
-    var imageData = this.ctx.getImageData(
-      1,
-      1,
-      this.canvas.width,
-      this.canvas.height
-    );
-    var pixels = imageData.data;
-    var dataLength = imageData.width * imageData.height;
+    const imageData = this.ctx.getImageData(1, 1, this.canvas.width, this.canvas.height);
+    const pixels = imageData.data;
+    const dataLength = imageData.width * imageData.height;
 
     for (let i = 0; i < dataLength; i++) {
-      var currentRow = Math.floor(i / imageData.width);
-      var currentColumn = i - Math.floor(i / imageData.height);
+      const currentRow = Math.floor(i / imageData.width);
+      const currentColumn = i - Math.floor(i / imageData.height);
 
       if (currentRow % 2 || currentColumn % 2) {
         continue;
       }
 
-      if (checkAlpha(pixels, i)) {
+      if (this.checkAlpha(pixels, i)) {
         const cy = ~~(i / imageData.width);
-        const cx = ~~(i - cy * imageData.width);
+        const cx = ~~(i - (cy * imageData.width));
+
         this.createParticle(cx, cy);
       }
     }
   }
 
-  resetParticles () {
-    for (const p of this.particles) {
-      p.reset();
-    }
+  start () {
+    const clearLoop = () => {
+      this.clearCanvas();
+      this.clearLoopId = requestAnimationFrame(clearLoop);
+    };
+
+    const animLoop = () => {
+      this.ctx.fillStyle = this.color;
+      let isAlive = false;
+      for (const p of this.particles) {
+        if (p.tick()) { isAlive = true; }
+      }
+      if (!isAlive) {
+        this.resetParticles();
+        setTimeout(() => {
+          requestAnimationFrame(animLoop);
+        }, 1750);
+        return;
+      }
+      this.animLoopId = requestAnimationFrame(animLoop);
+    };
+
+    clearLoop();
+    animLoop();
+  }
+
+  stop () {
+    cancelAnimationFrame(this.clearLoopId);
+    cancelAnimationFrame(this.animLoopId);
   }
 }
 
@@ -523,23 +532,20 @@ function init () {
 
 window.onload = function () {
   function showMain () {
+    particleText.stop(); // stop animation loops
     document.getElementById('loader').style.display = 'none';
     document.getElementById('main').style.display = 'block';
   }
 
-  const loaderCanvas = document.getElementById('loadercanvas');
-  loaderCanvas.width = window.innerWidth;
-  loaderCanvas.height = window.innerHeight;
-  const ctx = loaderCanvas.getContext('2d');
-  ctx.font = 'bold 200px "Arial"';
-  ctx.textBaseline = 'center';
-  ctx.fillStyle = '#000';
-  const text = new ParticleText(ctx, 'loading');
-  text.createParticles();
-  text.startAnimLoop();
-  // text.startClearLoop();
+  const loadingCanvas = document.getElementById('loadingcanvas');
+  loadingCanvas.width = window.innerWidth;
+  loadingCanvas.height = window.innerHeight;
+
+  const particleText = new ParticleText(loadingCanvas);
+  particleText.init('loading...');
+  particleText.start();
 
   init();
 
-  setTimeout(showMain, 4000);
+  setTimeout(showMain, 12000);
 };
