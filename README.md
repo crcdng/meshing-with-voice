@@ -1,5 +1,7 @@
 ### Meshing With Voice
 
+NOTE (2025) still works :)
+
 **WORK IN PROGRESS**
 
 A quick voice and face-me(a)sh-up in the browser, inspired by https://www.youtube.com/watch?v=ac7MSo9nMiI
